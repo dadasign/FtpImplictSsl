@@ -195,6 +195,7 @@ class FTP_Implicit_SSL {
 	public function getErr(){
 		return $this->err;
 	}
+	*/
 
 	/**
 	 * Attempt to close cURL handle
