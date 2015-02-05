@@ -161,13 +161,13 @@ class FTP_Implicit_SSL {
 		curl_setopt( $this->curl_handle, CURLOPT_URL, $this->url . $file_name);
 		curl_setopt( $this->curl_handle, CURLOPT_UPLOAD, false);
 		curl_setopt( $this->curl_handle, CURLOPT_RETURNTRANSFER, TRUE);
-    	curl_setopt( $this->curl_handle, CURLOPT_HEADER, TRUE);
-    	curl_setopt( $this->curl_handle, CURLOPT_NOBODY, TRUE);
+    		curl_setopt( $this->curl_handle, CURLOPT_HEADER, TRUE);
+    		curl_setopt( $this->curl_handle, CURLOPT_NOBODY, TRUE);
 
-     	$data = curl_exec( $this->curl_handle);
-     	$size = curl_getinfo( $this->curl_handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+     		$data = curl_exec( $this->curl_handle);
+     		$size = curl_getinfo( $this->curl_handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 
-     	return $size;
+     		return $size;
 	}
 	
 	public function delete($file_name){
@@ -186,16 +186,6 @@ class FTP_Implicit_SSL {
 			return 'FAILED';
 		}
 	}
-	/**
-	
-	public function getHandle(){
-		return $this->curl_handle;
-	}
-	
-	public function getErr(){
-		return $this->err;
-	}
-	*/
 
 	/**
 	 * Attempt to close cURL handle
