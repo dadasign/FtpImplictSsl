@@ -1,0 +1,13 @@
+{
+    "name": "dadasign/ftp-implict-ssl",
+    "description": "A library to use Implict FTP over TLS",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Max Rice , Damith Jayasinghe, dadasign Jakub Jasek",
+            "email": "dadasign@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
