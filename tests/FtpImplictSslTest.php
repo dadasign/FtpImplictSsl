@@ -43,32 +43,62 @@ class FtpImplictSslTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::ftplist
+     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::nList
      */
-    public function testFtpList()
+    public function testNList()
     {
-        $files = $this->object->ftpList();
-        var_dump($files);
+        $files = $this->object->nList();
         $this->assertNotEmpty($files);
         $this->assertContains(EXPECTED_FILE, $files);
     }
+    
+    /**
+     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::rawList
+     */
+    public function rawList()
+    {
+        $files = $this->object->rawList();
+        $this->assertNotEmpty($files);
+        $this->assertContains(EXPECTED_FILE, array_keys($files));
+        $this->assertInternalType('array', $files[EXPECTED_FILE]);
+    }
 
     /**
-     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::download
+     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::get
      */
     public function testGet()
     {
         $localFilename = 'tests/test.data';
         $this->object->get($localFilename,EXPECTED_FILE);
         $is_file = is_file($localFilename);
+        
         if($is_file){
+            $file_size = filesize($localFilename);
             unlink($localFilename);
         }
         $this->assertTrue($is_file,'File was downloaded.');
+        $this->assertGreaterThanOrEqual(MIN_EXPECTED_FILE_SIZE, $file_size);
+    }
+    /**
+     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::get
+     */
+    public function testGetAfterListRequest()
+    {
+        $localFilename = 'tests/test.data';
+        $this->object->nList();
+        $this->object->get($localFilename,EXPECTED_FILE);
+        $is_file = is_file($localFilename);
+        
+        if($is_file){
+            $file_size = filesize($localFilename);
+            unlink($localFilename);
+        }
+        $this->assertTrue($is_file,'File was downloaded.');
+        $this->assertGreaterThanOrEqual(MIN_EXPECTED_FILE_SIZE, $file_size);
     }
 
     /**
-     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::remote_file_size
+     * @covers dadasign\FtpImplictSsl\FtpImplictSsl::remoteFileSize
      * @todo   Implement testRemote_file_size().
      */
     public function testRemoteFileSize()

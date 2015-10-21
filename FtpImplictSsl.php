@@ -11,115 +11,96 @@ namespace dadasign\FtpImplictSsl;
  * @since       1.0
  */
 class FtpImplictSsl {
-
-    /** @var resource cURL resource handle */
-    private $curl_handle;
-
     /** @var string cURL URL for upload */
     private $url;
-    private $err;
+    /** @var CurlWrapper */
+    private $curlWrapper;
 
     /**
      * Connect to FTP server over Implicit SSL/TLS
      *
      *
      * @access public
-     * @since 1.0
      * @param string $username
      * @param string $password
      * @param string $server
      * @param int $port
      * @param string $initial_path
      * @param bool $passive_mode
-     * @throws Exception - blank username / password / port
+     * @throws Exception - blank username / server / port
      * @return \FTP_Implicit_SSL
      */
     public function __construct($username, $password, $server, $port = 990, $initial_path = '', $passive_mode = false) {
-
-        // check for blank username
-        if (!$username)
+        
+        if (!$username){
             throw new \Exception('FTP Username is blank.');
-
-        // don't check for blank password (highly-questionable use case, but still)
-        // check for blank server
-        if (!$server)
+        }
+        if (!$server){
             throw new \Exception('FTP Server is blank.');
-
-        // check for blank port
-        if (!$port)
+        }
+        if (!$port){
             throw new \Exception('FTP Port is blank.', WC_XML_Suite::$text_domain);
-
+        }
+        $this->curlWrapper = new CurlWrapper($username, $password, $port, $passive_mode);
         // set host/initial path
         $this->url = "ftps://{$server}/{$initial_path}";
-
-        // setup connection
-        $this->curl_handle = curl_init();
-
-        // check for successful connection
-        if (!$this->curl_handle)
-            throw new \Exception('Could not initialize cURL.');
-
-        // connection options
-        $options = array(
-            CURLOPT_USERPWD => $username . ':' . $password,
-            CURLOPT_SSL_VERIFYPEER => false, // don't verify SSL
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_FTP_SSL => CURLFTPSSL_ALL, // require SSL For both control and data connections
-            CURLOPT_FTPSSLAUTH => CURLFTPAUTH_DEFAULT, // let cURL choose the FTP authentication method (either SSL or TLS)
-            CURLOPT_UPLOAD => true,
-            CURLOPT_PORT => $port,
-            CURLOPT_TIMEOUT => 30,
-        );
-
-        // cURL FTP enables passive mode by default, so disable it by enabling the PORT command and allowing cURL to select the IP address for the data connection
-        if (!$passive_mode){
-            $options[CURLOPT_FTPPORT] = '-';
-        }
-
-        // set connection options, use foreach so useful errors can be caught instead of a generic "cannot set options" error with curl_setopt_array()
-        foreach ($options as $option_name => $option_value) {
-            if (!curl_setopt($this->curl_handle, $option_name, $option_value))
-                throw new \Exception(sprintf('Could not set cURL option: %s', $option_name));
-        }
     }
+    
 
     /**
      * Write file into temporary memory and upload stream to remote file
      *
      * @access public
-     * @since 1.0
      * @param string $file_name - remote file name to create
      * @param string $file - path to local file to upload
      * @throws Exception - Open remote file failure or write data failure
      */
     public function upload($file_name, $file) {
+        $ch = $this->curlWrapper->getCurlHandle();
         // set file name
-        curl_setopt($this->curl_handle, CURLOPT_URL, $this->url . $file_name);
+        curl_setopt($ch, CURLOPT_URL, $this->url . $file_name);
         // set the file to be uploaded
         $fp = fopen($file, "r");
-        curl_setopt($this->curl_handle, CURLOPT_INFILE, $fp);
-        curl_setopt($this->curl_handle, CURLOPT_INFILESIZE, filesize($file));
+        curl_setopt($ch, CURLOPT_INFILE, $fp);
+        curl_setopt($ch, CURLOPT_INFILESIZE, filesize($file));
         // upload file
-        if (!curl_exec($this->curl_handle))
-            throw new \Exception(sprintf('Could not upload file. cURL Error: [%s] - %s', curl_errno($this->curl_handle), curl_error($this->curl_handle)));
+        if (!curl_exec($ch)){
+            throw new \Exception(sprintf('Could not upload file. cURL Error: [%s] - %s', curl_errno($ch), curl_error($ch)));
+        }
     }
-
+    /**
+     * List file details.
+     * @return array
+     */
+    public function rawList(){
+        return $this->getList(false);
+    }
+    /**
+     * List file names.
+     * @return array
+     */
+    public function nList() {
+        return $this->getList(true);
+    }
     /**
      * @return array List of file names
      * @throws Exception
      */
-    public function ftpList() {
-        if (!curl_setopt($this->curl_handle, CURLOPT_URL, $this->url)){
+    private function getList($namesOnly){
+        $ch = $this->curlWrapper->getCurlHandle();
+        if (!curl_setopt($ch, CURLOPT_URL, $this->url)){
             throw new \Exception("Could not set cURL directory: $this->url");
         }
 
-        curl_setopt($this->curl_handle, CURLOPT_UPLOAD, false);
-        curl_setopt($this->curl_handle, CURLOPT_FTPLISTONLY, 1);
-        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_UPLOAD, false);
+        if($namesOnly){
+            curl_setopt($ch, CURLOPT_FTPLISTONLY, 1);
+        }
+        
+        $result = curl_exec($ch);
 
-        $result = curl_exec($this->curl_handle);
         if($result===false){
-            throw new \Exception("FtpImplictSsl->ftpList failed: ".curl_error($this->curl_handle));
+            throw new \Exception("Listing files failed: ".curl_error($ch));
         }
         $files = explode("\n", trim($result));
         if (count($files)) {
@@ -138,13 +119,12 @@ class FtpImplictSsl {
      */
     public function get($localFileName, $remoteFileName) {
         $file = fopen($localFileName, "w");
-        curl_setopt($this->curl_handle, CURLOPT_URL, $this->url . $remoteFileName);
-        curl_setopt($this->curl_handle, CURLOPT_UPLOAD, false);
-        curl_setopt($this->curl_handle, CURLOPT_FOLLOWLOCATION, 1);
-        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($this->curl_handle, CURLOPT_FILE, $file);
+        $ch = $this->curlWrapper->getCurlHandle();
+        curl_setopt($ch, CURLOPT_URL, $this->url . $remoteFileName);
+        curl_setopt($ch, CURLOPT_UPLOAD, false);
+        curl_setopt($ch, CURLOPT_FILE, $file);
 
-        $result = curl_exec($this->curl_handle);
+        $result = curl_exec($ch);
         fclose($file);
 
         if (strlen($result)) {
@@ -155,14 +135,14 @@ class FtpImplictSsl {
     }
 
     public function remoteFileSize($file_name) {
-        curl_setopt($this->curl_handle, CURLOPT_URL, $this->url . $file_name);
-        curl_setopt($this->curl_handle, CURLOPT_UPLOAD, false);
-        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($this->curl_handle, CURLOPT_HEADER, TRUE);
-        curl_setopt($this->curl_handle, CURLOPT_NOBODY, TRUE);
+        $ch = $this->curlWrapper->getCurlHandle();
+        curl_setopt($ch, CURLOPT_URL, $this->url . $file_name);
+        curl_setopt($ch, CURLOPT_UPLOAD, false);
+        curl_setopt($ch, CURLOPT_HEADER, TRUE);
+        curl_setopt($ch, CURLOPT_NOBODY, TRUE);
 
-        $data = curl_exec($this->curl_handle);
-        $size = curl_getinfo($this->curl_handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+        curl_exec($ch);
+        $size = curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 
         return $size;
     }
@@ -173,13 +153,15 @@ class FtpImplictSsl {
      * @return boolean|string Returns false on failure or full file path on success.
      */
     public function delete($file_name) {
-        curl_setopt($this->curl_handle, CURLOPT_URL, $this->url . $file_name);
-        curl_setopt($this->curl_handle, CURLOPT_UPLOAD, false);
-        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($this->curl_handle, CURLOPT_HEADER, false);
-        //curl_setopt( $this->curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-        curl_setopt($this->curl_handle, CURLOPT_QUOTE, array('DELE ' . $file_name));
-        $result = curl_exec($this->curl_handle) or die(curl_error($this->curl_handle));
+        $ch = $this->curlWrapper->getCurlHandle();
+        curl_setopt($ch, CURLOPT_URL, $this->url . $file_name);
+        curl_setopt($ch, CURLOPT_UPLOAD, false);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_QUOTE, array('DELE ' . $file_name));
+        $result = curl_exec($ch);
+        if($result===false){
+            throw new \Exception("Error deleting: ".curl_error($ch));
+        }
         $files = explode("\n", trim($result));
 
         if (!in_array($file_name, $files)) {
@@ -188,16 +170,4 @@ class FtpImplictSsl {
             return false;
         }
     }
-
-    /**
-     * Attempt to close cURL handle
-     * Note - errors suppressed here as they are not useful
-     *
-     * @access public
-     * @since 1.0
-     */
-    public function __destruct() {
-        @curl_close($this->curl_handle);
-    }
-
 }
