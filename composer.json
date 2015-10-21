@@ -8,6 +8,11 @@
             "email": "dadasign@gmail.com"
         }
     ],
+    "autoload": {
+        "psr-4": {
+            "dadasign\\FtpImplictSsl\\": "/"
+        }
+    },
     "minimum-stability": "dev",
     "require": {}
 }
