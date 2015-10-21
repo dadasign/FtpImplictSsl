@@ -109,7 +109,6 @@ class FtpImplictSsl {
      * @throws Exception
      */
     public function ftpList() {
-        var_dump($this->url);
         if (!curl_setopt($this->curl_handle, CURLOPT_URL, $this->url)){
             throw new \Exception("Could not set cURL directory: $this->url");
         }
